@@ -112,13 +112,35 @@ ncek/
 
 ## Environment Variables
 
-### Frontend
-- `BACKEND_URL`: Backend API URL (default: `http://localhost:8080`)
+Create a `.env` file in the project root to configure environment variables:
+
+```bash
+# Generate a secure API secret key
+openssl rand -hex 32
+
+# Create .env file
+cat > .env << EOF
+API_SECRET_KEY=your-generated-secret-key-here
+ALLOWED_ORIGIN=http://localhost:3001
+BACKEND_URL=http://backend:8080
+EOF
+```
+
+### Required Variables
+
+- `API_SECRET_KEY`: Secret key for API authentication between frontend and backend. **Change this to a secure random string!** Generate one using: `openssl rand -hex 32`
+
+### Frontend Variables
+- `BACKEND_URL`: Backend API URL (default: `http://backend:8080` in Docker, `http://localhost:8080` locally)
 - `PORT`: Port to run the frontend server (default: `3000`)
 - `NODE_ENV`: Node environment (default: `production`)
+- `ALLOWED_ORIGIN`: Allowed CORS origin (default: `http://localhost:3001`)
 
-### Backend
+### Backend Variables
 - `GIN_MODE`: Gin mode (`debug` or `release`, default: `release` in Docker)
+- `API_SECRET_KEY`: Must match the frontend's `API_SECRET_KEY`
+
+**Note:** The `.env` file is already in `.gitignore` to prevent committing secrets. Create your own `.env` file from the template above.
 
 ## API Documentation
 

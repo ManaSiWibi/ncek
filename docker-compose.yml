@@ -8,6 +8,7 @@ services:
     # Do not publish the backend port; keep it internal to the Docker network
     environment:
       - GIN_MODE=release
+      - API_SECRET_KEY=${API_SECRET_KEY:-change-me-to-a-secure-random-string}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -28,6 +29,7 @@ services:
       - PORT=3000
       - BACKEND_URL=http://backend:8080
       - ALLOWED_ORIGIN=http://localhost:3001
+      - API_SECRET_KEY=${API_SECRET_KEY:-change-me-to-a-secure-random-string}
     depends_on:
       - backend
     restart: unless-stopped

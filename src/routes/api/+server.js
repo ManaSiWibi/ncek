@@ -98,10 +98,17 @@ export async function GET({ url, request }) {
 			backendUrl += `?${params.toString()}`;
 		}
 		
-		// Make request to the backend API with internal proxy header
+		// Make request to the backend API with internal proxy header and secret key
+		// Secret key is server-side only, never exposed to browser
+		const apiSecret = env.API_SECRET_KEY;
+		if (!apiSecret) {
+			throw error(500, 'API secret key not configured');
+		}
+		
 		const response = await fetch(backendUrl, {
 			headers: {
-				'X-Internal-Proxy': 'true'
+				'X-Internal-Proxy': 'true',
+				'X-API-Secret': apiSecret
 			}
 		});
 		

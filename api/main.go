@@ -1779,9 +1779,10 @@ func main() {
 		requestOrigin := c.Request.Header.Get("Origin")
 		clientIP := c.ClientIP()
 
-		// Check for internal proxy header (frontend server-to-server requests)
-		internalProxyHeader := c.Request.Header.Get("X-Internal-Proxy")
-		isInternalProxy := internalProxyHeader == "true" || internalProxyHeader == "1"
+		// Check for API secret key (required for server-to-server requests)
+		apiSecret := strings.TrimSpace(getenvDefault("API_SECRET_KEY", ""))
+		providedSecret := c.Request.Header.Get("X-API-Secret")
+		hasValidSecret := apiSecret != "" && providedSecret == apiSecret
 
 		// Determine if request is from internal network (Docker network or localhost)
 		// Used as fallback for local development
@@ -1817,9 +1818,9 @@ func main() {
 			c.Header("Access-Control-Allow-Origin", allowedOrigin)
 		} else {
 			// For non-browser requests (no Origin header like curl, Postman, server-to-server):
-			// Require X-Internal-Proxy header (from frontend proxy) OR be from internal network
+			// Require X-API-Secret header (from frontend proxy with secret key) OR be from internal network
 			// This prevents external direct API access while allowing frontend proxy and local development
-			if !isInternalProxy && !isInternalNetwork {
+			if !hasValidSecret && !isInternalNetwork {
 				c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
 					Success: false,
 					Error:   "Direct API access not allowed. Please use the frontend application.",
@@ -1830,7 +1831,7 @@ func main() {
 
 		c.Header("Vary", "Origin")
 		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, X-Internal-Proxy")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, X-Internal-Proxy, X-API-Secret")
 		c.Header("Access-Control-Allow-Credentials", "true")
 
 		if c.Request.Method == "OPTIONS" {
