@@ -1,11 +1,12 @@
 /**
  * API utility functions for making requests to the backend API
  * These functions call server endpoints that proxy to the Go backend API
+ * Note: The API secret is handled server-side only and never exposed to the browser
  */
 
 /**
  * Fetch data from a specific API endpoint
- * @param {string} endpoint - API endpoint (e.g., '/cek', '/http3', '/ssl')
+ * @param {string} endpoint - API endpoint (e.g., '/api', '/api/html-proxy')
  * @param {object} params - Query parameters
  * @returns {Promise<any>} - API response data
  */
@@ -22,6 +23,7 @@ export async function fetchApiData(endpoint, params = {}) {
 		const queryString = queryParams.toString();
 		const url = `${endpoint}${queryString ? `?${queryString}` : ''}`;
 		
+		// Make request to server-side API route (secret is handled server-side)
 		const response = await fetch(url);
 		
 		if (!response.ok) {
@@ -132,7 +134,7 @@ export async function checkComprehensive(domain) {
  * @returns {Promise<any>} - HTML content
  */
 export async function fetchHTMLProxy(url) {
-	const response = await fetch(`/api/html-proxy?url=${encodeURIComponent(url)}`);
+	const response = await fetch(`/api?type=html-proxy&url=${encodeURIComponent(url)}`);
 	if (!response.ok) {
 		throw new Error(`HTTP error! status: ${response.status}`);
 	}

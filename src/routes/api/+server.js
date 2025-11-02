@@ -3,16 +3,14 @@ import { env } from '$env/dynamic/private';
 
 /** @type {import('./$types').RequestHandler} */
 export async function GET({ url, request }) {
-	// Require API secret key from environment
+	// Require API secret key from environment (server-side only, never exposed to client)
 	const apiSecret = env.API_SECRET_KEY;
 	if (!apiSecret) {
 		throw error(500, 'API secret key not configured');
 	}
 
-	// Require secret to match - all requests must provide valid secret
-	if (!apiSecret) {
-		throw error(403, 'Invalid or missing API secret key');
-	}
+	// Note: This route is server-side only. The secret is never exposed to the browser.
+	// The backend API will validate the secret when we forward the request.
 	try {
 		const type = url.searchParams.get('type');
 		const domain = url.searchParams.get('domain');
@@ -63,11 +61,6 @@ export async function GET({ url, request }) {
 		
 		// Make request to the backend API with internal proxy header and secret key
 		// Secret key is server-side only, never exposed to browser
-		const apiSecret = env.API_SECRET_KEY;
-		if (!apiSecret) {
-			throw error(500, 'API secret key not configured');
-		}
-		
 		const response = await fetch(backendUrl, {
 			headers: {
 				'X-Internal-Proxy': 'true',
