@@ -207,7 +207,7 @@
 				<div>
 					<h2 class="text-lg font-semibold text-gray-900 mb-4">NCEK</h2>
 					<p class="text-gray-600 text-sm">
-						Free Website and Network checking tools.
+						Free Website and Network analysis, checking and troubleshooting tools.
 					</p>
 				</div>
 				
@@ -262,7 +262,7 @@
 				<div>
 					<h2 class="text-sm font-semibold text-gray-900 mb-4">About</h2>
 					<p class="text-gray-600 text-sm">
-						A modern web application for testing network connectivity and performance.
+						A free web application for testing web and network connectivity and performance.
 					</p>
 				</div>
 			</div>
@@ -271,7 +271,7 @@
 			<div class="mt-8 pt-8 border-t border-gray-200">
 				<div class="flex flex-col md:flex-row justify-between items-center">
 					<p class="text-gray-500 text-sm">
-						© 2024 NCEK. All rights reserved.
+						© 2025 NCEK.
 					</p>
 					<div class="mt-4 md:mt-0">
 						<p class="text-gray-500 text-sm">
