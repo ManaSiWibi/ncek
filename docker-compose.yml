@@ -7,8 +7,8 @@ services:
       dockerfile: Dockerfile
     # Do not publish the backend port; keep it internal to the Docker network
     environment:
-      - GIN_MODE=release
-      - API_SECRET_KEY=${API_SECRET_KEY:-change-me-to-a-secure-random-string}
+      - GIN_MODE=${GIN_MODE:-release}
+      - API_SECRET_KEY=${API_SECRET_KEY}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
@@ -22,14 +22,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3001:3000"
+      - "${FRONTEND_PORT:-3001}:3000"
     environment:
-      - NODE_ENV=production
-      - HOST=0.0.0.0
+      - NODE_ENV=${NODE_ENV:-production}
+      - HOST=${HOST:-0.0.0.0}
       - PORT=3000
-      - BACKEND_URL=http://backend:8080
-      - ALLOWED_ORIGIN=http://localhost:3001
-      - API_SECRET_KEY=${API_SECRET_KEY:-change-me-to-a-secure-random-string}
+      - BACKEND_URL=${BACKEND_URL:-http://backend:8080}
+      - ALLOWED_ORIGIN=${ALLOWED_ORIGIN:-http://localhost:3001}
+      - API_SECRET_KEY=${API_SECRET_KEY}
     depends_on:
       - backend
     restart: unless-stopped

@@ -112,35 +112,38 @@ ncek/
 
 ## Environment Variables
 
-Create a `.env` file in the project root to configure environment variables:
+Create a `.env` file in the project root to configure all environment variables:
 
 ```bash
 # Generate a secure API secret key
 openssl rand -hex 32
 
-# Create .env file
-cat > .env << EOF
-API_SECRET_KEY=your-generated-secret-key-here
-ALLOWED_ORIGIN=http://localhost:3001
-BACKEND_URL=http://backend:8080
-EOF
+# Create .env file from template
+cp .env.example .env
+
+# Edit .env and update API_SECRET_KEY with your generated key
 ```
 
 ### Required Variables
 
-- `API_SECRET_KEY`: Secret key for API authentication between frontend and backend. **Change this to a secure random string!** Generate one using: `openssl rand -hex 32`
+- `API_SECRET_KEY`: **REQUIRED** - Secret key for API authentication between frontend and backend. Generate one using: `openssl rand -hex 32`
 
-### Frontend Variables
-- `BACKEND_URL`: Backend API URL (default: `http://backend:8080` in Docker, `http://localhost:8080` locally)
-- `PORT`: Port to run the frontend server (default: `3000`)
+### Optional Variables (with defaults)
+
+**Backend:**
+- `GIN_MODE`: Gin mode (`debug` or `release`, default: `release`)
+
+**Frontend:**
 - `NODE_ENV`: Node environment (default: `production`)
+- `HOST`: Host to bind to (default: `0.0.0.0`)
+- `PORT`: Internal container port (default: `3000`, fixed)
+- `FRONTEND_PORT`: External port mapping (default: `3001`)
+- `BACKEND_URL`: Backend API URL (default: `http://backend:8080`)
 - `ALLOWED_ORIGIN`: Allowed CORS origin (default: `http://localhost:3001`)
 
-### Backend Variables
-- `GIN_MODE`: Gin mode (`debug` or `release`, default: `release` in Docker)
-- `API_SECRET_KEY`: Must match the frontend's `API_SECRET_KEY`
+All variables are read from the `.env` file automatically by Docker Compose.
 
-**Note:** The `.env` file is already in `.gitignore` to prevent committing secrets. Create your own `.env` file from the template above.
+**Note:** The `.env` file is already in `.gitignore` to prevent committing secrets. Copy `.env.example` to `.env` and update the values.
 
 ## API Documentation
 
