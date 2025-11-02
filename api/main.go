@@ -385,6 +385,7 @@ var routeTTL = map[string]time.Duration{
 	"/api/v1/blocklist":    10 * time.Minute,
 	"/api/v1/robots-txt":   10 * time.Minute,
 	"/api/v1/sitemap":      10 * time.Minute,
+	"/api/v1/og-image":     10 * time.Minute,
 }
 
 func cacheKey(route string, q map[string]string) string {
@@ -1600,6 +1601,52 @@ type HTMLProxyResponse struct {
 	Error  string `json:"error,omitempty"`
 }
 
+// OGImageInfo represents Open Graph image and metadata information
+type OGImageInfo struct {
+	URL    string `json:"url"`
+	Domain string `json:"domain"`
+	Found  bool   `json:"found"`
+
+	// OG Image specific
+	ImageURL    string `json:"image_url,omitempty"`
+	ImageURLAlt string `json:"image_url_alt,omitempty"`
+	ImageSecure string `json:"image_secure,omitempty"`
+	ImageWidth  string `json:"image_width,omitempty"`
+	ImageHeight string `json:"image_height,omitempty"`
+	ImageType   string `json:"image_type,omitempty"`
+	Accessible  bool   `json:"accessible"`
+	Status      int    `json:"status,omitempty"`
+	ContentType string `json:"content_type,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+
+	// OG Metadata
+	OGTitle       string `json:"og_title,omitempty"`
+	OGDescription string `json:"og_description,omitempty"`
+	OGType        string `json:"og_type,omitempty"`
+	OGURL         string `json:"og_url,omitempty"`
+	OGSiteName    string `json:"og_site_name,omitempty"`
+	OGLocale      string `json:"og_locale,omitempty"`
+
+	// Twitter Card metadata
+	TwitterCard        string `json:"twitter_card,omitempty"`
+	TwitterSite        string `json:"twitter_site,omitempty"`
+	TwitterCreator     string `json:"twitter_creator,omitempty"`
+	TwitterTitle       string `json:"twitter_title,omitempty"`
+	TwitterDescription string `json:"twitter_description,omitempty"`
+	TwitterImage       string `json:"twitter_image,omitempty"`
+	TwitterImageAlt    string `json:"twitter_image_alt,omitempty"`
+
+	// Standard meta tags
+	MetaTitle       string `json:"meta_title,omitempty"`
+	MetaDescription string `json:"meta_description,omitempty"`
+
+	// All detected tags
+	AllMetaTags    map[string]string `json:"all_meta_tags,omitempty"`
+	AllTwitterTags map[string]string `json:"all_twitter_tags,omitempty"`
+
+	Error string `json:"error,omitempty"`
+}
+
 func handleHTMLProxy(c *gin.Context) {
 	url := c.Query("url")
 	if url == "" {
@@ -1656,6 +1703,232 @@ func handleHTMLProxy(c *gin.Context) {
 			HTML:   string(body),
 			Status: resp.StatusCode,
 		},
+	})
+}
+
+// CheckOGImage checks Open Graph image tags for a URL
+func (nc *NetChecker) CheckOGImage(url string) OGImageInfo {
+	info := OGImageInfo{URL: url}
+
+	// Clean and normalize URL
+	targetURL := url
+	if !strings.HasPrefix(targetURL, "https://") && !strings.HasPrefix(targetURL, "http://") {
+		targetURL = "https://" + targetURL
+	}
+
+	// Extract domain
+	cleanDomain := strings.TrimPrefix(targetURL, "https://")
+	cleanDomain = strings.TrimPrefix(cleanDomain, "http://")
+	cleanDomain = strings.Split(cleanDomain, "/")[0]
+	info.Domain = cleanDomain
+
+	// Fetch HTML content
+	resp, err := nc.httpClient.Get(targetURL)
+	if err != nil {
+		// Try HTTP if HTTPS fails
+		if strings.HasPrefix(targetURL, "https://") {
+			targetURL = strings.Replace(targetURL, "https://", "http://", 1)
+			resp, err = nc.httpClient.Get(targetURL)
+		}
+		if err != nil {
+			info.Error = fmt.Sprintf("Failed to fetch URL: %v", err)
+			return info
+		}
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		info.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		return info
+	}
+
+	// Read HTML content
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		info.Error = fmt.Sprintf("Failed to read response: %v", err)
+		return info
+	}
+
+	htmlContent := string(body)
+	info.AllMetaTags = make(map[string]string)
+	info.AllTwitterTags = make(map[string]string)
+
+	// Parse all OG tags
+	allOGTagsRegex := regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](og:[^"']+)["']\s+content=["']([^"']+)["']`)
+	matches := allOGTagsRegex.FindAllStringSubmatch(htmlContent, -1)
+	for _, match := range matches {
+		if len(match) >= 3 {
+			tagName := strings.ToLower(match[1])
+			tagValue := match[2]
+			info.AllMetaTags[tagName] = tagValue
+
+			// Extract specific OG fields
+			switch tagName {
+			case "og:title":
+				info.OGTitle = tagValue
+			case "og:description":
+				info.OGDescription = tagValue
+			case "og:type":
+				info.OGType = tagValue
+			case "og:url":
+				info.OGURL = tagValue
+			case "og:site_name":
+				info.OGSiteName = tagValue
+			case "og:locale":
+				info.OGLocale = tagValue
+			case "og:image":
+				info.ImageURL = tagValue
+				info.Found = true
+			case "og:image:url":
+				info.ImageURLAlt = tagValue
+			case "og:image:secure_url":
+				info.ImageSecure = tagValue
+			case "og:image:width":
+				info.ImageWidth = tagValue
+			case "og:image:height":
+				info.ImageHeight = tagValue
+			case "og:image:type":
+				info.ImageType = tagValue
+			}
+		}
+	}
+
+	// Parse all Twitter Card tags
+	allTwitterTagsRegex := regexp.MustCompile(`(?i)<meta\s+(?:property|name)=["'](twitter:[^"']+)["']\s+content=["']([^"']+)["']`)
+	twitterMatches := allTwitterTagsRegex.FindAllStringSubmatch(htmlContent, -1)
+	for _, match := range twitterMatches {
+		if len(match) >= 3 {
+			tagName := strings.ToLower(match[1])
+			tagValue := match[2]
+			info.AllTwitterTags[tagName] = tagValue
+
+			// Extract specific Twitter fields
+			switch tagName {
+			case "twitter:card":
+				info.TwitterCard = tagValue
+			case "twitter:site":
+				info.TwitterSite = tagValue
+			case "twitter:creator":
+				info.TwitterCreator = tagValue
+			case "twitter:title":
+				info.TwitterTitle = tagValue
+			case "twitter:description":
+				info.TwitterDescription = tagValue
+			case "twitter:image":
+				if !info.Found {
+					info.ImageURL = tagValue
+					info.Found = true
+				}
+				info.TwitterImage = tagValue
+			case "twitter:image:alt":
+				info.TwitterImageAlt = tagValue
+			}
+		}
+	}
+
+	// Extract standard meta tags (title and description)
+	metaTitleRegex := regexp.MustCompile(`(?i)<title>([^<]+)</title>`)
+	if match := metaTitleRegex.FindStringSubmatch(htmlContent); len(match) > 1 {
+		info.MetaTitle = strings.TrimSpace(match[1])
+	}
+
+	metaDescRegex := regexp.MustCompile(`(?i)<meta\s+name=["']description["']\s+content=["']([^"']+)["']`)
+	if match := metaDescRegex.FindStringSubmatch(htmlContent); len(match) > 1 {
+		info.MetaDescription = match[1]
+	}
+
+	// If still no image found, try standard meta tags
+	if !info.Found {
+		standardImageRegex := regexp.MustCompile(`(?i)<link\s+rel=["']image_src["']\s+href=["']([^"']+)["']`)
+		if match := standardImageRegex.FindStringSubmatch(htmlContent); len(match) > 1 {
+			info.ImageURL = match[1]
+			info.Found = true
+		}
+	}
+
+	// If we found an image URL, check if it's accessible
+	if info.Found && info.ImageURL != "" {
+		// Resolve relative URLs
+		imageURL := info.ImageURL
+		if strings.HasPrefix(imageURL, "//") {
+			imageURL = "https:" + imageURL
+		} else if strings.HasPrefix(imageURL, "/") {
+			imageURL = fmt.Sprintf("https://%s%s", cleanDomain, imageURL)
+		} else if !strings.HasPrefix(imageURL, "http://") && !strings.HasPrefix(imageURL, "https://") {
+			// Relative URL without leading slash
+			if strings.HasSuffix(targetURL, "/") {
+				imageURL = targetURL + imageURL
+			} else {
+				imageURL = targetURL + "/" + imageURL
+			}
+		}
+
+		// Try to fetch the image
+		imgResp, imgErr := nc.httpClient.Get(imageURL)
+		if imgErr != nil {
+			// Try HTTP if HTTPS fails
+			if strings.HasPrefix(imageURL, "https://") {
+				imageURLHTTP := strings.Replace(imageURL, "https://", "http://", 1)
+				var imgRespHTTP *http.Response
+				imgRespHTTP, imgErr = nc.httpClient.Get(imageURLHTTP)
+				if imgErr == nil {
+					imgResp = imgRespHTTP
+				}
+			}
+		}
+
+		if imgErr == nil && imgResp != nil {
+			defer imgResp.Body.Close()
+			info.Accessible = true
+			info.Status = imgResp.StatusCode
+			info.ContentType = imgResp.Header.Get("Content-Type")
+			info.Size = imgResp.ContentLength
+		} else {
+			info.Accessible = false
+			if imgErr != nil {
+				info.Error = fmt.Sprintf("Image not accessible: %v", imgErr)
+			} else {
+				info.Error = "Image not accessible"
+			}
+		}
+	}
+
+	return info
+}
+
+func handleOGImage(c *gin.Context) {
+	url := c.Query("url")
+	domain := c.Query("domain")
+
+	// Support both url and domain parameters
+	targetURL := url
+	if targetURL == "" && domain != "" {
+		targetURL = domain
+	}
+
+	if targetURL == "" {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Success: false,
+			Error:   "URL or domain parameter is required",
+		})
+		return
+	}
+
+	key := cacheKey("/api/v1/og-image", map[string]string{"url": targetURL})
+	if v, ok := apiCache.Get(key); ok {
+		c.JSON(http.StatusOK, APIResponse{Success: true, Data: v})
+		return
+	}
+
+	checker := NewNetChecker()
+	ogInfo := checker.CheckOGImage(targetURL)
+	if ttl, ok := routeTTL["/api/v1/og-image"]; ok {
+		apiCache.Set(key, ogInfo, ttl)
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    ogInfo,
 	})
 }
 
@@ -1865,6 +2138,7 @@ func main() {
 		"/api/v1/sitemap":       10,
 		"/api/v1/blocklist":     10,
 		"/api/v1/web-settings":  20,
+		"/api/v1/og-image":      15,
 	})
 	api.Use(rl.Middleware())
 	{
@@ -1879,6 +2153,7 @@ func main() {
 		api.GET("/hsts", handleHSTS)
 		api.GET("/robots-txt", handleRobotsTxt)
 		api.GET("/sitemap", handleSitemap)
+		api.GET("/og-image", handleOGImage)
 		api.GET("/html-proxy", handleHTMLProxy)
 		api.GET("/comprehensive", handleComprehensive)
 	}
@@ -1900,6 +2175,7 @@ func main() {
 				"hsts":          "GET /api/v1/hsts?domain=example.com",
 				"robots-txt":    "GET /api/v1/robots-txt?domain=example.com",
 				"sitemap":       "GET /api/v1/sitemap?domain=example.com",
+				"og-image":      "GET /api/v1/og-image?url=https://example.com or ?domain=example.com",
 				"comprehensive": "GET /api/v1/comprehensive?domain=example.com",
 			},
 		})

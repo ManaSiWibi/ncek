@@ -115,6 +115,16 @@ export const tools = {
 		apiParams: (value) => ({ type: 'sitemap', domain: value }),
 		resultCard: 'raw',
 		transform: (data) => data
+	},
+	"og-image": {
+		title: 'OG Image Check',
+		description: 'Check and validate Open Graph image tags for social media sharing.',
+		placeholder: 'e.g., example.com or https://example.com/page',
+		formField: 'description',
+		path: '/og-image',
+		apiParams: (value) => ({ type: 'og-image', url: value }),
+		resultCard: 'og_image',
+		transform: (data) => data
 	}
 };
 

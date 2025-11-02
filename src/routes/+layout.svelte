@@ -75,6 +75,12 @@
 		href: "/sitemap",
 		description:
 			"Check and analyze sitemap.xml file to see what pages are indexed."
+		},
+		{
+		title: "OG Image Check",
+		href: "/og-image",
+		description:
+			"Check and validate Open Graph image tags for social media sharing."
 		}
 	];
 	

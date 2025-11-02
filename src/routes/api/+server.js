@@ -30,11 +30,13 @@ export async function GET({ url, request }) {
 			'email_config': 'email-config',
 		'blocklist': 'blocklist',
 		'hsts': 'hsts',
-		'robots-txt': 'robots-txt',
-		'sitemap': 'sitemap',
-		'html-proxy': 'html-proxy',
-		'comprehensive': 'comprehensive',
-		'full': 'comprehensive'
+			'robots-txt': 'robots-txt',
+			'sitemap': 'sitemap',
+			'og-image': 'og-image',
+			'og_image': 'og-image',
+			'html-proxy': 'html-proxy',
+			'comprehensive': 'comprehensive',
+			'full': 'comprehensive'
 		};
 		
 		// If no type specified, default to comprehensive
@@ -45,14 +47,23 @@ export async function GET({ url, request }) {
 		let backendUrl = `${backendHost}/api/v1/${endpoint}`;
 		const params = new URLSearchParams();
 		
-		if (domain) {
-			params.append('domain', domain);
+		// For og-image endpoint, prefer url parameter, fallback to domain
+		if (endpoint === 'og-image') {
+			if (urlParam) {
+				params.append('url', urlParam);
+			} else if (domain) {
+				params.append('url', domain);
+			}
+		} else {
+			if (domain) {
+				params.append('domain', domain);
+			}
+			if (urlParam) {
+				params.append('url', urlParam);
+			}
 		}
 		if (ip) {
 			params.append('ip', ip);
-		}
-		if (urlParam) {
-			params.append('url', urlParam);
 		}
 		
 		if (params.toString()) {

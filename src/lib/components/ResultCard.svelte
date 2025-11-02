@@ -1,6 +1,8 @@
 <script>
+	import OGImageResults from './OGImageResults.svelte';
+
 	/** @type {{
-		type?: 'dns' | 'ssl' | 'http3' | 'ip' | 'web_settings' | 'email_config' | 'raw' | 'error';
+		type?: 'dns' | 'ssl' | 'http3' | 'ip' | 'web_settings' | 'email_config' | 'og_image' | 'raw' | 'error';
 		data?: any;
 		isOpen?: boolean;
 		toggleAccordion?: ((id: string) => void) | null;
@@ -100,6 +102,10 @@
 			];
 		}
 		
+		if (type === 'og_image') {
+			return null; // Handled separately
+		}
+		
 		if (type === 'raw') {
 			return null; // Handled separately
 		}
@@ -160,7 +166,9 @@
 	}
 </script>
 
-{#if type === 'error' && data?.error}
+{#if type === 'og_image'}
+	<OGImageResults data={data} />
+{:else if type === 'error' && data?.error}
 	<div class="col-span-full p-4 sm:p-6 bg-red-50 border border-red-200 rounded-lg">
 		<div class="flex items-center space-x-2 text-red-600">
 			<span class="text-xl sm:text-2xl">✗</span>
