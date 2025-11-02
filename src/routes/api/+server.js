@@ -51,8 +51,12 @@ export async function GET({ url }) {
 			backendUrl += `?${params.toString()}`;
 		}
 		
-		// Make request to the backend API
-		const response = await fetch(backendUrl);
+		// Make request to the backend API with internal proxy header
+		const response = await fetch(backendUrl, {
+			headers: {
+				'X-Internal-Proxy': 'true'
+			}
+		});
 		
 		if (!response.ok) {
 			throw new Error(`HTTP error! status: ${response.status}`);
