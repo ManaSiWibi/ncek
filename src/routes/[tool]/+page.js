@@ -1,8 +1,12 @@
 import { getToolConfig, tools } from '$lib/tools.js';
+import { error } from '@sveltejs/kit';
 
 /** @type {import('./$types').PageLoad} */
-export function load({ params }) {
+export function load({ params, depends }) {
 	const { tool } = params;
+	
+	// Ensure this load function re-runs when the tool param changes
+	depends(`tool:${tool}`);
 	
 	// Try direct lookup first
 	let config = getToolConfig(tool);
@@ -19,10 +23,7 @@ export function load({ params }) {
 	}
 	
 	if (!config) {
-		return {
-			status: 404,
-			error: new Error('Tool not found')
-		};
+		throw error(404, 'Tool not found');
 	}
 	return { config };
 }
