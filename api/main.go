@@ -2115,6 +2115,12 @@ func main() {
 
 	// API secret authentication middleware
 	r.Use(func(c *gin.Context) {
+		// Allow direct access to /metrics endpoint for monitoring systems
+		if c.Request.URL.Path == "/metrics" {
+			c.Next()
+			return
+		}
+
 		// In debug mode, skip secret validation entirely
 		isDev := getenvDefault("GIN_MODE", "release") == "debug"
 		if isDev {
