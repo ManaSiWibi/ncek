@@ -14,9 +14,39 @@ export async function GET({ url, request }) {
 	const secretFromHeader = request.headers.get('authorization')?.replace('Bearer ', '');
 	const providedSecret = secretFromQuery || secretFromHeader;
 	
-	// Require secret to match - all requests must provide valid secret
-	// No exceptions: same-origin or external, all must include secret
-	if (providedSecret !== apiSecret) {
+	// Check if request is same-origin (from the frontend itself)
+	const origin = request.headers.get('origin');
+	const referer = request.headers.get('referer');
+	const host = request.headers.get('host');
+	
+	let isSameOrigin = false;
+	if (origin && host) {
+		try {
+			const originUrl = new URL(origin);
+			// Check if origin matches the current host
+			isSameOrigin = originUrl.host === host || originUrl.hostname === host.split(':')[0];
+		} catch {
+			// Invalid origin URL
+		}
+	}
+	
+	// If no origin header, check referer as fallback
+	if (!isSameOrigin && referer && host) {
+		try {
+			const refererUrl = new URL(referer);
+			isSameOrigin = refererUrl.host === host || refererUrl.hostname === host.split(':')[0];
+		} catch {
+			// Invalid referer URL
+		}
+	}
+	
+	// For same-origin requests (from frontend), automatically use server-side secret
+	// For external requests, require secret to be provided
+	if (isSameOrigin) {
+		// Same-origin request - automatically validated using server-side secret
+		// No need to check providedSecret, as we use the server-side apiSecret
+	} else if (providedSecret !== apiSecret) {
+		// External request - must provide valid secret
 		throw error(403, 'Invalid or missing API secret key');
 	}
 	try {

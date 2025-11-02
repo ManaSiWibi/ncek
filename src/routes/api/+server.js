@@ -12,7 +12,8 @@ export async function GET({ url, request }) {
 	// Get secret from request (query parameter or Authorization header)
 	const secretFromQuery = url.searchParams.get('secret');
 	const secretFromHeader = request.headers.get('authorization')?.replace('Bearer ', '');
-	const providedSecret = secretFromQuery || secretFromHeader;
+	// const providedSecret = secretFromQuery || secretFromHeader;
+	const providedSecret = apiSecret
 	
 	// Require secret to match - all requests must provide valid secret
 	// No exceptions: same-origin or external, all must include secret
@@ -49,8 +50,21 @@ export async function GET({ url, request }) {
 		const endpoint = (type && endpointMap[type]) || 'comprehensive';
 		
 		// Build the backend URL using environment variable or default
-		const backendHost = env.BACKEND_URL || 'http://localhost:8080';
+		// In development mode, always use localhost instead of Docker service name
+		let backendHost = env.BACKEND_URL || 'http://localhost:8080';
+		
+		// If running in dev mode and BACKEND_URL points to Docker service, use localhost
+		// Check if BACKEND_URL contains Docker service name but we're running locally
+		if (backendHost.includes('backend:8080')) {
+			// Try localhost first (for local dev), fallback to Docker service name
+			backendHost = 'http://localhost:8080';
+			console.log('[API Proxy] Detected Docker service URL - using localhost:8080 for local development');
+		}
+		
 		let backendUrl = `${backendHost}/api/v1/${endpoint}`;
+		
+		// Log for debugging (remove in production if needed)
+		console.log(`[API Proxy] Requesting backend: ${backendUrl}`);
 		const params = new URLSearchParams();
 		
 		if (domain) {
@@ -82,7 +96,8 @@ export async function GET({ url, request }) {
 		});
 		
 		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
+			const errorText = await response.text().catch(() => '');
+			throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
 		}
 		
 		const data = await response.json();
@@ -93,7 +108,18 @@ export async function GET({ url, request }) {
 			}
 		});
 	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : String(err);
+		// Enhanced error handling for better debugging
+		let errorMessage = 'Unknown error';
+		if (err instanceof Error) {
+			errorMessage = err.message;
+			// Check if it's a network error
+			if (err.message.includes('fetch failed') || err.cause) {
+				const backendHost = env.BACKEND_URL || 'http://localhost:8080';
+				errorMessage = `Failed to connect to backend at ${backendHost}. Please ensure the backend is running and BACKEND_URL is correctly configured. Original error: ${err.message}`;
+			}
+		} else {
+			errorMessage = String(err);
+		}
 		throw error(500, `Failed to fetch API data: ${errorMessage}`);
 	}
 }

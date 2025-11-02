@@ -1753,8 +1753,9 @@ func handleHealth(c *gin.Context) {
 }
 
 func main() {
-	// Set Gin to release mode for production
-	gin.SetMode(gin.ReleaseMode)
+	// Set Gin mode based on environment variable (debug for dev, release for production)
+	ginMode := getenvDefault("GIN_MODE", "release")
+	gin.SetMode(ginMode)
 
 	// Create Gin router
 	r := gin.Default()
@@ -1773,9 +1774,24 @@ func main() {
 
 	p := ginprometheus.NewPrometheus("gin")
 
-	// API secret authentication middleware - require secret for all requests
+	// API secret authentication middleware
 	r.Use(func(c *gin.Context) {
-		// Check for API secret key - required for all requests
+		// In debug mode, skip secret validation entirely
+		isDev := getenvDefault("GIN_MODE", "release") == "debug"
+		if isDev {
+			// Set CORS headers for all requests in dev mode
+			requestOrigin := c.Request.Header.Get("Origin")
+			if requestOrigin != "" {
+				c.Header("Access-Control-Allow-Origin", requestOrigin)
+				c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+				c.Header("Access-Control-Allow-Headers", "Content-Type, X-Internal-Proxy, X-API-Secret, Authorization")
+				c.Header("Access-Control-Allow-Credentials", "true")
+			}
+			c.Next()
+			return
+		}
+
+		// In production mode, require secret authentication
 		apiSecret := strings.TrimSpace(getenvDefault("API_SECRET_KEY", ""))
 		if apiSecret == "" {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
@@ -1798,7 +1814,7 @@ func main() {
 			}
 		}
 
-		// Require secret to match - no exceptions
+		// Require secret to match
 		if providedSecret != apiSecret {
 			c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
 				Success: false,
@@ -1881,7 +1897,11 @@ func main() {
 	})
 
 	// Start server
-	fmt.Println("NetCheck API Server starting on :8080")
+	mode := getenvDefault("GIN_MODE", "release")
+	fmt.Printf("NetCheck API Server starting on :8080 (mode: %s)\n", mode)
+	if mode == "debug" {
+		fmt.Println("⚠️  DEVELOPMENT MODE: API access allowed without secret authentication")
+	}
 	fmt.Println("API Documentation available at http://localhost:8080")
 	r.Run(":8080")
 }
