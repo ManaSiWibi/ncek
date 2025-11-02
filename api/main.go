@@ -2002,7 +2002,7 @@ func handleComprehensive(c *gin.Context) {
 		durationMs int64
 	}
 
-	resultChan := make(chan result, 5) // Buffer for 5 results (ssl, web_settings, http3, dns, email_config)
+	resultChan := make(chan result, 7) // Buffer for 7 results (ssl, web_settings, http3, dns, email_config, robots_txt, sitemap)
 
 	// Run all checks concurrently with timing
 	// Combined SSL + WebSettings in a single network request
@@ -2037,11 +2037,25 @@ func handleComprehensive(c *gin.Context) {
 		resultChan <- result{"email_config", data, duration}
 	}()
 
-	// Collect results (5 items total, but only 4 network operations)
+	go func() {
+		checkStart := time.Now()
+		data := checker.CheckRobotsTxt(domain)
+		duration := time.Since(checkStart).Milliseconds()
+		resultChan <- result{"robots_txt", data, duration}
+	}()
+
+	go func() {
+		checkStart := time.Now()
+		data := checker.CheckSitemap(domain)
+		duration := time.Since(checkStart).Milliseconds()
+		resultChan <- result{"sitemap", data, duration}
+	}()
+
+	// Collect results (7 items total, but only 6 network operations)
 	comprehensiveData := make(map[string]interface{})
 	timings := make(map[string]int64)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 7; i++ {
 		res := <-resultChan
 		comprehensiveData[res.name] = res.data
 		timings[res.name] = res.durationMs
@@ -2095,7 +2109,9 @@ func main() {
 		// If setting proxies fails, continue with default (no trust)
 	}
 
-	p := ginprometheus.NewPrometheus("gin")
+	p := ginprometheus.NewWithConfig(ginprometheus.Config{
+		Subsystem: "gin",
+	})
 
 	// API secret authentication middleware
 	r.Use(func(c *gin.Context) {
