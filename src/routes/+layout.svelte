@@ -103,7 +103,6 @@
 	<li>
 	  <NavigationMenu.Link
 		{href}
-		data-sveltekit-reload
 		aria-label={`${title} - ${content}`}
 		class={cn(
 		  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
@@ -163,7 +162,7 @@
 		<NavigationMenu.List class="group flex list-none p-1">
 						
 			<NavigationMenu.Item class="">
-				<NavigationMenu.Link href="/" data-sveltekit-reload class={navigationMenuTriggerStyle()} aria-label="Home - NCEK Network Check Tools">
+				<NavigationMenu.Link href="/" class={navigationMenuTriggerStyle()} aria-label="Home - NCEK Network Check Tools">
 					Home
 				</NavigationMenu.Link>
 			</NavigationMenu.Item>
@@ -211,42 +210,42 @@
 					<h2 class="text-sm font-semibold text-gray-900 mb-4">Quick Links</h2>
 					<ul class="space-y-2" role="list">
 						<li>
-							<a href="/" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								Comprehensive Check
 							</a>
 						</li>
 						<li>
-							<a href="/ssl" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/ssl" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								SSL Certificate
 							</a>
 						</li>
 						<li>
-							<a href="/http3" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/http3" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								HTTP/3 Test
 							</a>
 						</li>
 						<li>
-							<a href="/dns" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/dns" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								DNS Lookup
 							</a>
 						</li>
 						<li>
-							<a href="/ip" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/ip" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								IP Lookup
 							</a>
 						</li>
 						<li>
-							<a href="/web-settings" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+							<a href="/web-settings" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								Web Settings
 							</a>
 						</li>
 					<li>
-						<a href="/email-config" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+						<a href="/email-config" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 							Email Config
 						</a>
 					</li>
 					<li>
-						<a href="/robots-txt" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
+						<a href="/robots-txt" class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 							Robots.txt Check
 						</a>
 					</li>
