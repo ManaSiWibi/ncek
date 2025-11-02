@@ -1,6 +1,7 @@
 <script>
 	import ResultCard from '$lib/components/ResultCard.svelte';
 	import { fetchApiData } from '$lib/api.js';
+	import { page } from '$app/stores';
 	
 	let { data } = $props();
 	const config = data?.config;
@@ -12,6 +13,9 @@
 	if (!config) {
 		throw new Error('Tool not found');
 	}
+	
+	const pageTitle = config ? `${config.title} | NCEK` : 'Tool | NCEK';
+	const pageDescription = config?.description || 'Network and website checking tool';
 	
 	/**
 	 * @param {any} event
@@ -36,21 +40,27 @@
 	}
 </script>
 
+<svelte:head>
+	<title>{pageTitle}</title>
+	<meta name="description" content={pageDescription} />
+	<link rel="canonical" href={`https://tools.kenadera.org${$page.url.pathname}`} />
+</svelte:head>
+
 <div class="min-h-screen flex py-6 sm:py-8 md:py-10 px-4">
 	<div class="w-full max-w-7xl mx-auto">
 		<!-- Header -->
-		<div class="text-center mb-6 sm:mb-8">
+		<header class="text-center mb-6 sm:mb-8">
 			<h1 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 sm:mb-3 md:mb-4">
 				{config.title}
 			</h1>
 			<p class="text-sm sm:text-base md:text-lg text-gray-600">
 				{config.description}
 			</p>
-		</div>
+		</header>
 
 		<!-- Form -->
 		<div class="w-full max-w-2xl mx-auto">
-			<form onsubmit={checkTool} class="space-y-6">
+			<form onsubmit={checkTool} class="space-y-6" aria-label={`${config.title} form`}>
 				<div>
 					<label for="value" class="block text-sm font-medium text-gray-700 mb-2">
 						Input
@@ -60,15 +70,22 @@
 						name={config.formField}
 						type="text"
 						placeholder={config.placeholder}
-						autocomplete="off"
+						autocomplete={config.formField === 'ip' ? 'off' : 'url'}
+						required
+						aria-required="true"
+						aria-label={config.placeholder}
 						class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
 						disabled={loading}
+						aria-describedby="input-help"
 					/>
+					<p id="input-help" class="sr-only">Enter {config.placeholder}</p>
 				</div>
 				
 				<button
 					type="submit"
 					disabled={loading}
+					aria-label={loading ? 'Checking, please wait' : `Run ${config.title} check`}
+					aria-busy={loading}
 					class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 				>
 					{loading ? 'Checking...' : 'Submit'}

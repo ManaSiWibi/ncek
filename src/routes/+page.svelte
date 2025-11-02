@@ -2,6 +2,9 @@
 <script>
 	import DomainResults from '$lib/components/DomainResults.svelte';
 	import { checkComprehensive } from '$lib/api.js';
+	import { page } from '$app/stores';
+	
+	let { data } = $props();
 	
 	/** @type {any} */
 	let number = $state();
@@ -74,12 +77,45 @@
 	];
 </script>
 
+<svelte:head>
+	<title>{data?.title || 'NCEK - Network & Website Check Tools'}</title>
+	<meta name="description" content={data?.description || 'Free comprehensive network checking tools'} />
+	<meta name="keywords" content={data?.keywords || 'SSL checker, DNS lookup, HTTP/3 test, network tools'} />
+	
+	<!-- Structured Data -->
+	{@html `<script type="application/ld+json">
+	{
+		"@context": "https://schema.org",
+		"@type": "WebApplication",
+		"name": "NCEK - Network & Website Check Tools",
+		"description": "Free comprehensive tools to analyze SSL certificates, DNS records, HTTP/3 support, email configuration, and more.",
+		"url": "https://tools.kenadera.org",
+		"applicationCategory": "Network Analysis Tool",
+		"operatingSystem": "Any",
+		"offers": {
+			"@type": "Offer",
+			"price": "0",
+			"priceCurrency": "USD"
+		},
+		"featureList": [
+			"SSL Certificate Checker",
+			"DNS Lookup",
+			"HTTP/3 Test",
+			"Email Configuration Checker",
+			"OG Image Validator",
+			"Robots.txt Checker",
+			"Sitemap Checker"
+		]
+	}
+	</script>`}
+</svelte:head>
+
 <div class="w-full">
 	<!-- Hero Section -->
-	<section class="py-12 sm:py-16 md:py-20 lg:py-24">
+	<section aria-labelledby="main-heading" class="py-12 sm:py-16 md:py-20 lg:py-24">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center max-w-4xl mx-auto">
-				<h1 class="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-6">
+				<h1 id="main-heading" class="text-4xl sm:text-5xl md:text-6xl font-bold text-gray-900 mb-6">
 					Network & Website
 					<span class="text-blue-600">Check</span>
 				</h1>
@@ -90,20 +126,28 @@
 				
 				<!-- Main Check Form -->
 				<div class="max-w-2xl mx-auto mt-10">
-					<form onsubmit={roll} class="space-y-4">
+					<form onsubmit={roll} class="space-y-4" aria-label="Domain or IP address checker">
 						<div class="flex flex-col sm:flex-row gap-3">
+							<label for="domain" class="sr-only">Domain or IP address</label>
 							<input
 								id="domain"
 								name="description"
 								type="text"
 								placeholder="Enter domain or IP address (e.g., google.com)"
-								autocomplete="off"
+								autocomplete="url"
+								required
+								aria-required="true"
+								aria-label="Domain or IP address to check"
 								class="flex-1 px-5 py-4 text-base border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all duration-200 shadow-sm"
 								disabled={loading}
+								aria-describedby="domain-help"
 							/>
+							<span id="domain-help" class="sr-only">Enter a domain name or IP address to check</span>
 							<button
 								type="submit"
 								disabled={loading}
+								aria-label={loading ? 'Checking domain, please wait' : 'Run comprehensive check'}
+								aria-busy={loading}
 								class="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-4 px-8 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-md hover:shadow-lg whitespace-nowrap"
 							>
 								{loading ? 'Checking...' : 'Run Comprehensive Check'}
@@ -125,10 +169,10 @@
 	{/if}
 
 	<!-- Features Section -->
-	<section class="py-16 sm:py-20 md:py-24 bg-gray-50">
+	<section aria-labelledby="tools-heading" class="py-16 sm:py-20 md:py-24 bg-gray-50">
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="text-center mb-12 md:mb-16">
-				<h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+				<h2 id="tools-heading" class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-4">
 					Powerful Tools for Network Analysis
 				</h2>
 				<p class="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto">
@@ -136,15 +180,16 @@
 				</p>
 			</div>
 
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8" role="list">
 				{#each tools as tool}
 					<a
 						href={tool.href}
 						data-sveltekit-reload
-						class="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-200 border border-gray-200 hover:border-blue-300"
+						aria-label={`${tool.title} - ${tool.description}`}
+						class="group bg-white rounded-xl p-6 shadow-md hover:shadow-xl transition-all duration-200 border border-gray-200 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
 					>
 						<div class="flex items-start gap-4">
-							<div class="text-4xl flex-shrink-0">{tool.icon}</div>
+							<div class="text-4xl flex-shrink-0" aria-hidden="true">{tool.icon}</div>
 							<div class="flex-1">
 								<h3 class="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
 									{tool.title}

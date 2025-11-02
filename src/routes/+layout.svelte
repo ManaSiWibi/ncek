@@ -5,9 +5,10 @@
 	import { cn } from "$lib/utils.js";
 	import { navigationMenuTriggerStyle } from "$lib/components/ui/navigation-menu/navigation-menu-trigger.svelte";
 	import type { HTMLAttributes } from "svelte/elements";
-	import CircleHelpIcon from "@lucide/svelte/icons/circle-help";
-	import CircleIcon from "@lucide/svelte/icons/circle";
-	import CircleCheckIcon from "@lucide/svelte/icons/circle-check";
+	import { page } from '$app/stores';
+ 
+	let { data, children } = $props();
+	const seo = data?.seo || {};
  
 	const navigationItems: { title: string; href: string; description: string }[] = [
 		{
@@ -89,8 +90,6 @@
 		href: string;
 		content: string;
 	};
-	
-	let { children } = $props();
 </script>
 
 
@@ -102,52 +101,76 @@
 	...restProps
   }: ListItemProps)}
 	<li>
-	  <NavigationMenu.Link class="">
-		{#snippet child()}
-		  <a
-			{href}
-			data-sveltekit-reload
-			class={cn(
-			  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors",
-			  className
-			)}
-			{...restProps}
-		  >
-			<div class="text-sm font-medium leading-none">{title}</div>
-			<p class="text-muted-foreground line-clamp-2 text-sm leading-snug">
-			  {content}
-			</p>
-		  </a>
-		{/snippet}
+	  <NavigationMenu.Link
+		{href}
+		data-sveltekit-reload
+		aria-label={`${title} - ${content}`}
+		class={cn(
+		  "hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+		  className
+		)}
+		{...restProps}
+	  >
+		<div class="text-sm font-medium leading-none">{title}</div>
+		<p class="text-muted-foreground line-clamp-2 text-sm leading-snug">
+		  {content}
+		</p>
 	  </NavigationMenu.Link>
 	</li>
   {/snippet}
 
 
 <svelte:head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<meta name="description" content={seo.siteDescription || "Free comprehensive network and website checking tools"} />
+	<meta name="keywords" content="SSL checker, DNS lookup, HTTP/3 test, email config checker, network tools, website analysis, OG image checker" />
+	<meta name="author" content="NCEK" />
+	<meta name="robots" content="index, follow" />
+	<meta name="theme-color" content="#2563eb" />
+	
+	<!-- Open Graph / Facebook -->
+	<meta property="og:type" content="website" />
+	<meta property="og:url" content={seo.siteUrl || "https://tools.kenadera.org"} />
+	<meta property="og:title" content={seo.siteName || "NCEK - Network & Website Check Tools"} />
+	<meta property="og:description" content={seo.siteDescription || "Free comprehensive tools to analyze SSL certificates, DNS records, HTTP/3 support, email configuration, and more."} />
+	<meta property="og:site_name" content="NCEK" />
+	
+	<!-- Twitter -->
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={seo.siteName || "NCEK - Network & Website Check Tools"} />
+	<meta name="twitter:description" content={seo.siteDescription || "Free comprehensive network checking tools"} />
+	
 	<link rel="icon" href={favicon} />
+	<link rel="canonical" href={`${seo.siteUrl || "https://tools.kenadera.org"}${$page.url.pathname}`} />
 	<script defer src="https://umami.kenadera.org/script.js" data-website-id="0eb8a86a-8f82-4f78-9ca5-9bd205c0800c"></script>
 </svelte:head>
 
-
-
 <div class="min-h-screen flex flex-col">
+	<!-- Skip to main content link for accessibility -->
+	<a 
+		href="#main-content" 
+		class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+	>
+		Skip to main content
+	</a>
+	
 	<!-- Header -->
-	<NavigationMenu.Root viewport={false} class="relative z-10 flex w-full self-center border-b border-gray-200 max-w-full
+	<header>
+		<NavigationMenu.Root viewport={false} class="relative z-10 flex w-full self-center border-b border-gray-200 max-w-full
 ">
 		
 		<NavigationMenu.List class="group flex list-none p-1">
 						
-			<NavigationMenu.Item>
-				
-				<NavigationMenu.Link class={navigationMenuTriggerStyle()}>
-					<a href="/" data-sveltekit-reload>Home</a>
+			<NavigationMenu.Item class="">
+				<NavigationMenu.Link href="/" data-sveltekit-reload class={navigationMenuTriggerStyle()} aria-label="Home - NCEK Network Check Tools">
+					Home
 				</NavigationMenu.Link>
 			</NavigationMenu.Item>
 
-			  <NavigationMenu.Item>
-				<NavigationMenu.Trigger>Components</NavigationMenu.Trigger>
-				<NavigationMenu.Content>
+			  <NavigationMenu.Item class="">
+				<NavigationMenu.Trigger class={navigationMenuTriggerStyle()} aria-label="Navigation menu - Available tools">Tools</NavigationMenu.Trigger>
+				<NavigationMenu.Content class="">
 				  <ul
 					class="grid w-[400px] gap-2 p-2 md:w-[500px] md:grid-cols-2 lg:w-[600px]"
 				  >
@@ -164,9 +187,10 @@
 
 		</NavigationMenu.List>
 	</NavigationMenu.Root>
+	</header>
 
 	<!-- Main Content -->
-	<main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+	<main id="main-content" class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 		{@render children?.()}
 	</main>
 
@@ -176,16 +200,16 @@
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
 				<!-- Brand Section -->
 				<div>
-					<h3 class="text-lg font-semibold text-gray-900 mb-4">NCEK</h3>
+					<h2 class="text-lg font-semibold text-gray-900 mb-4">NCEK</h2>
 					<p class="text-gray-600 text-sm">
 						Free Website and Network checking tools.
 					</p>
 				</div>
 				
 				<!-- Links Section -->
-				<div>
-					<h4 class="text-sm font-semibold text-gray-900 mb-4">Quick Links</h4>
-					<ul class="space-y-2">
+				<nav aria-label="Quick links">
+					<h2 class="text-sm font-semibold text-gray-900 mb-4">Quick Links</h2>
+					<ul class="space-y-2" role="list">
 						<li>
 							<a href="/" data-sveltekit-reload class="text-gray-600 hover:text-blue-600 text-sm transition-colors">
 								Comprehensive Check
@@ -227,11 +251,11 @@
 						</a>
 					</li>
 				</ul>
-				</div>
+				</nav>
 				
 				<!-- Info Section -->
 				<div>
-					<h4 class="text-sm font-semibold text-gray-900 mb-4">About</h4>
+					<h2 class="text-sm font-semibold text-gray-900 mb-4">About</h2>
 					<p class="text-gray-600 text-sm">
 						A modern web application for testing network connectivity and performance.
 					</p>
