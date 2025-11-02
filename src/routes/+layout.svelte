@@ -120,6 +120,7 @@
 
 <svelte:head>
 	<link rel="icon" href={favicon} />
+	<script defer src="https://umami.kenadera.org/script.js" data-website-id="0eb8a86a-8f82-4f78-9ca5-9bd205c0800c"></script>
 </svelte:head>
 
 
