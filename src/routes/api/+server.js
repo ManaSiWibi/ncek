@@ -72,12 +72,24 @@ export async function GET({ url, request }) {
 		
 		// Make request to the backend API with internal proxy header and secret key
 		// Secret key is server-side only, never exposed to browser
-		const response = await fetch(backendUrl, {
-			headers: {
-				'X-Internal-Proxy': 'true',
-				'X-API-Secret': apiSecret
-			}
-		});
+		// Forward the real client IP for rate limiting
+		const clientIP = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+		                 request.headers.get('x-real-ip') ||
+		                 request.headers.get('cf-connecting-ip') || // Cloudflare
+		                 null;
+		
+		/** @type {Record<string, string>} */
+		const headers = {
+			'X-Internal-Proxy': 'true',
+			'X-API-Secret': apiSecret
+		};
+		
+		// Forward client IP if available
+		if (clientIP) {
+			headers['X-Forwarded-For'] = clientIP;
+		}
+		
+		const response = await fetch(backendUrl, { headers });
 		
 		if (!response.ok) {
 			const errorText = await response.text().catch(() => '');

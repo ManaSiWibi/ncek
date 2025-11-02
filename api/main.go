@@ -307,9 +307,59 @@ func (rl *RateLimiter) allow(ip string, route string) bool {
 	return false
 }
 
+// getRealClientIP extracts the real client IP from request headers
+// Priority: X-Forwarded-For (first IP) > X-Real-IP > CF-Connecting-IP > RemoteAddr
+func getRealClientIP(c *gin.Context) string {
+	// Check X-Forwarded-For header (format: "client, proxy1, proxy2")
+	// This is set by the frontend proxy with the real client IP
+	xForwardedFor := c.Request.Header.Get("X-Forwarded-For")
+	if xForwardedFor != "" {
+		// Take the first IP in the chain (the original client)
+		ips := strings.Split(xForwardedFor, ",")
+		if len(ips) > 0 {
+			ip := strings.TrimSpace(ips[0])
+			// Validate it's a valid IP address
+			if ip != "" && net.ParseIP(ip) != nil {
+				return ip
+			}
+		}
+	}
+
+	// Check X-Real-IP header
+	xRealIP := c.Request.Header.Get("X-Real-IP")
+	if xRealIP != "" {
+		ip := strings.TrimSpace(xRealIP)
+		if ip != "" && net.ParseIP(ip) != nil {
+			return ip
+		}
+	}
+
+	// Check CF-Connecting-IP (Cloudflare)
+	cfIP := c.Request.Header.Get("CF-Connecting-IP")
+	if cfIP != "" {
+		ip := strings.TrimSpace(cfIP)
+		if ip != "" && net.ParseIP(ip) != nil {
+			return ip
+		}
+	}
+
+	// Fallback to RemoteAddr (removes port if present)
+	remoteAddr := c.Request.RemoteAddr
+	if remoteAddr != "" {
+		// Remove port if present (format: "ip:port")
+		if idx := strings.LastIndex(remoteAddr, ":"); idx != -1 {
+			return remoteAddr[:idx]
+		}
+		return remoteAddr
+	}
+
+	// Last resort: use Gin's ClientIP() which should handle trusted proxies
+	return c.ClientIP()
+}
+
 func (rl *RateLimiter) Middleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
+		ip := getRealClientIP(c)
 		route := c.FullPath()
 		if route == "" {
 			route = c.Request.URL.Path
