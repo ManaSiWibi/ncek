@@ -9,6 +9,11 @@ services:
     environment:
       - GIN_MODE=${GIN_MODE:-release}
       - API_SECRET_KEY=${API_SECRET_KEY}
+      - GEOIP_DB_PATH=${GEOIP_DB_PATH:-geoip/GeoLite2-City.mmdb}
+      - GEOIP_ASN_DB_PATH=${GEOIP_ASN_DB_PATH:-geoip/GeoLite2-ASN.mmdb}
+    volumes:
+      # Mount geoip folder to access MaxMind databases
+      - ./api/geoip:/root/geoip:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
