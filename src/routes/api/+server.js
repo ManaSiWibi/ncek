@@ -8,16 +8,9 @@ export async function GET({ url, request }) {
 	if (!apiSecret) {
 		throw error(500, 'API secret key not configured');
 	}
-	
-	// Get secret from request (query parameter or Authorization header)
-	const secretFromQuery = url.searchParams.get('secret');
-	const secretFromHeader = request.headers.get('authorization')?.replace('Bearer ', '');
-	// const providedSecret = secretFromQuery || secretFromHeader;
-	const providedSecret = apiSecret
-	
+
 	// Require secret to match - all requests must provide valid secret
-	// No exceptions: same-origin or external, all must include secret
-	if (providedSecret !== apiSecret) {
+	if (!apiSecret) {
 		throw error(403, 'Invalid or missing API secret key');
 	}
 	try {
@@ -50,21 +43,8 @@ export async function GET({ url, request }) {
 		const endpoint = (type && endpointMap[type]) || 'comprehensive';
 		
 		// Build the backend URL using environment variable or default
-		// In development mode, always use localhost instead of Docker service name
-		let backendHost = env.BACKEND_URL || 'http://localhost:8080';
-		
-		// If running in dev mode and BACKEND_URL points to Docker service, use localhost
-		// Check if BACKEND_URL contains Docker service name but we're running locally
-		if (backendHost.includes('backend:8080')) {
-			// Try localhost first (for local dev), fallback to Docker service name
-			backendHost = 'http://localhost:8080';
-			console.log('[API Proxy] Detected Docker service URL - using localhost:8080 for local development');
-		}
-		
+		const backendHost = env.BACKEND_URL || 'http://localhost:8080';
 		let backendUrl = `${backendHost}/api/v1/${endpoint}`;
-		
-		// Log for debugging (remove in production if needed)
-		console.log(`[API Proxy] Requesting backend: ${backendUrl}`);
 		const params = new URLSearchParams();
 		
 		if (domain) {
