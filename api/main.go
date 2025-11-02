@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
@@ -424,6 +425,159 @@ func (cch *Cache) Set(key string, val interface{}, ttl time.Duration) {
 
 var apiCache = NewCache()
 
+// MaxMind GeoIP2 database reader (lazy initialization)
+var (
+	geoIPReader      *geoip2.Reader
+	geoIPASNReader   *geoip2.Reader
+	geoIPMutex       sync.RWMutex
+	geoIPInitOnce    sync.Once
+	geoIPASNInitOnce sync.Once
+)
+
+// initGeoIP initializes the MaxMind GeoIP2 database reader
+func initGeoIP() error {
+	dbPath := getenvDefault("GEOIP_DB_PATH", "geoip/GeoLite2-City.mmdb")
+	if dbPath == "" {
+		return fmt.Errorf("GeoIP database path not configured")
+	}
+
+	reader, err := geoip2.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open GeoIP database at %s: %v", dbPath, err)
+	}
+
+	geoIPMutex.Lock()
+	geoIPReader = reader
+	geoIPMutex.Unlock()
+
+	return nil
+}
+
+// getGeoIPReader returns the GeoIP reader, initializing it if needed
+func getGeoIPReader() *geoip2.Reader {
+	geoIPInitOnce.Do(func() {
+		if err := initGeoIP(); err != nil {
+			// Log error but don't fail - graceful degradation
+			fmt.Printf("Warning: GeoIP initialization failed: %v\n", err)
+			fmt.Println("GeoIP lookups will return 'Unknown' values. To enable GeoIP:")
+			fmt.Println("1. Download GeoLite2 database from https://dev.maxmind.com/geoip/geolite2-free-geolocation-data")
+			fmt.Println("2. Place the .mmdb files in the ./geoip/ folder or set GEOIP_DB_PATH environment variable")
+		}
+	})
+
+	geoIPMutex.RLock()
+	defer geoIPMutex.RUnlock()
+	return geoIPReader
+}
+
+// initGeoIPASN initializes the MaxMind GeoIP2 ASN database reader
+func initGeoIPASN() error {
+	asnDbPath := getenvDefault("GEOIP_ASN_DB_PATH", "geoip/GeoLite2-ASN.mmdb")
+	if asnDbPath == "" {
+		return fmt.Errorf("GeoIP ASN database path not configured")
+	}
+
+	reader, err := geoip2.Open(asnDbPath)
+	if err != nil {
+		return fmt.Errorf("failed to open GeoIP ASN database at %s: %v", asnDbPath, err)
+	}
+
+	geoIPMutex.Lock()
+	geoIPASNReader = reader
+	geoIPMutex.Unlock()
+
+	return nil
+}
+
+// getGeoIPASNReader returns the GeoIP ASN reader, initializing it if needed
+func getGeoIPASNReader() *geoip2.Reader {
+	geoIPASNInitOnce.Do(func() {
+		if err := initGeoIPASN(); err != nil {
+			// ASN database is optional, so we just silently fail
+			// fmt.Printf("Warning: GeoIP ASN initialization failed: %v\n", err)
+		}
+	})
+
+	geoIPMutex.RLock()
+	defer geoIPMutex.RUnlock()
+	return geoIPASNReader
+}
+
+// lookupGeoIP looks up IP geolocation information using MaxMind
+func lookupGeoIP(ipAddr string) (country, region, city, isp, organization, timezone string) {
+	reader := getGeoIPReader()
+	if reader == nil {
+		return "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown"
+	}
+
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown"
+	}
+
+	// Try City database first (more detailed)
+	geoIPMutex.RLock()
+	record, err := reader.City(ip)
+	geoIPMutex.RUnlock()
+
+	if err == nil {
+		country = record.Country.Names["en"]
+		if country == "" {
+			country = "Unknown"
+		}
+
+		if len(record.Subdivisions) > 0 {
+			region = record.Subdivisions[0].Names["en"]
+			if region == "" {
+				region = record.Subdivisions[0].IsoCode
+			}
+			if region == "" {
+				region = "Unknown"
+			}
+		} else {
+			region = "Unknown"
+		}
+
+		city = record.City.Names["en"]
+		if city == "" {
+			city = "Unknown"
+		}
+
+		location := record.Location
+		if location.TimeZone != "" {
+			timezone = location.TimeZone
+		} else {
+			timezone = "Unknown"
+		}
+
+		// ISP and Organization might not be in City database
+		// Try ASN database if available
+		isp = "Unknown"
+		organization = "Unknown"
+	} else {
+		// If City lookup fails, return Unknown for everything
+		return "Unknown", "Unknown", "Unknown", "Unknown", "Unknown", "Unknown"
+	}
+
+	// Try to get ASN info for ISP/Organization
+	// Note: This requires GeoLite2-ASN.mmdb database
+	asnReader := getGeoIPASNReader()
+	if asnReader != nil {
+		geoIPMutex.RLock()
+		asnRecord, err := asnReader.ASN(ip)
+		geoIPMutex.RUnlock()
+		if err == nil {
+			if asnRecord.AutonomousSystemOrganization != "" {
+				organization = asnRecord.AutonomousSystemOrganization
+			}
+			// ISP can be derived from organization
+			isp = organization
+		}
+	}
+
+	return
+}
+
 // TTLs per route
 var routeTTL = map[string]time.Duration{
 	"/api/v1/ssl":          5 * time.Minute,
@@ -714,19 +868,15 @@ func (nc *NetChecker) CheckIP(input string) IPInfo {
 		info.IsDomain = false
 		info.IP = cleanInput
 
-		// Try to establish connection to check if IP is reachable
-		conn, err := net.Dial("tcp", cleanInput+":80")
+		// Try to establish connection to check if IP is reachable (with timeout)
+		dialer := net.Dialer{Timeout: 2 * time.Second}
+		conn, err := dialer.Dial("tcp", cleanInput+":80")
 		if err == nil {
 			conn.Close()
 		}
 
-		// For demonstration, we'll return basic info
-		info.Country = "Unknown"
-		info.Region = "Unknown"
-		info.City = "Unknown"
-		info.ISP = "Unknown"
-		info.Organization = "Unknown"
-		info.Timezone = "Unknown"
+		// Get geolocation information from MaxMind
+		info.Country, info.Region, info.City, info.ISP, info.Organization, info.Timezone = lookupGeoIP(cleanInput)
 
 		return info
 	} else {
@@ -750,19 +900,15 @@ func (nc *NetChecker) CheckIP(input string) IPInfo {
 			// Use the first resolved IP
 			info.IP = info.ResolvedIPs[0]
 
-			// Try to establish connection
-			conn, err := net.Dial("tcp", info.IP+":80")
+			// Try to establish connection (with timeout)
+			dialer := net.Dialer{Timeout: 2 * time.Second}
+			conn, err := dialer.Dial("tcp", info.IP+":80")
 			if err == nil {
 				conn.Close()
 			}
 
-			// For demonstration, we'll return basic info
-			info.Country = "Unknown"
-			info.Region = "Unknown"
-			info.City = "Unknown"
-			info.ISP = "Unknown"
-			info.Organization = "Unknown"
-			info.Timezone = "Unknown"
+			// Get geolocation information from MaxMind
+			info.Country, info.Region, info.City, info.ISP, info.Organization, info.Timezone = lookupGeoIP(info.IP)
 		} else {
 			info.Error = "No IP addresses found for domain"
 		}
@@ -1209,12 +1355,22 @@ func handleMyIP(c *gin.Context) {
 		return
 	}
 
-	// Get detailed IP information
-	checker := NewNetChecker()
-	ipInfo := checker.CheckIP(clientIP)
+	// Get geolocation information from MaxMind
+	country, region, city, isp, organization, timezone := lookupGeoIP(clientIP)
 
-	// Override input field to indicate this is the user's own IP
-	ipInfo.Input = "Your IP: " + clientIP
+	// Create IP info response directly without the slow connection test
+	// The connection test in CheckIP() is unnecessary for my-ip and causes delays
+	ipInfo := IPInfo{
+		Input:        "Your IP: " + clientIP,
+		IsDomain:     false,
+		IP:           clientIP,
+		Country:      country,
+		Region:       region,
+		City:         city,
+		ISP:          isp,
+		Organization: organization,
+		Timezone:     timezone,
+	}
 
 	if ttl, ok := routeTTL["/api/v1/my-ip"]; ok {
 		apiCache.Set(key, ipInfo, ttl)
