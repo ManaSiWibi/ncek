@@ -430,6 +430,7 @@ var routeTTL = map[string]time.Duration{
 	"/api/v1/http3":        2 * time.Minute,
 	"/api/v1/dns":          2 * time.Minute,
 	"/api/v1/ip":           1 * time.Minute,
+	"/api/v1/my-ip":        30 * time.Second, // Shorter TTL since it's user-specific
 	"/api/v1/web-settings": 1 * time.Minute,
 	"/api/v1/email-config": 10 * time.Minute,
 	"/api/v1/blocklist":    10 * time.Minute,
@@ -1180,6 +1181,42 @@ func handleIP(c *gin.Context) {
 	checker := NewNetChecker()
 	ipInfo := checker.CheckIP(input)
 	if ttl, ok := routeTTL["/api/v1/ip"]; ok {
+		apiCache.Set(key, ipInfo, ttl)
+	}
+
+	c.JSON(http.StatusOK, APIResponse{
+		Success: true,
+		Data:    ipInfo,
+	})
+}
+
+func handleMyIP(c *gin.Context) {
+	// Get the real client IP from the request
+	clientIP := getRealClientIP(c)
+
+	if clientIP == "" {
+		c.JSON(http.StatusBadRequest, APIResponse{
+			Success: false,
+			Error:   "Could not determine client IP address",
+		})
+		return
+	}
+
+	// Use client IP as cache key (per user)
+	key := cacheKey("/api/v1/my-ip", map[string]string{"ip": clientIP})
+	if v, ok := apiCache.Get(key); ok {
+		c.JSON(http.StatusOK, APIResponse{Success: true, Data: v})
+		return
+	}
+
+	// Get detailed IP information
+	checker := NewNetChecker()
+	ipInfo := checker.CheckIP(clientIP)
+
+	// Override input field to indicate this is the user's own IP
+	ipInfo.Input = "Your IP: " + clientIP
+
+	if ttl, ok := routeTTL["/api/v1/my-ip"]; ok {
 		apiCache.Set(key, ipInfo, ttl)
 	}
 
@@ -2219,6 +2256,7 @@ func main() {
 		api.GET("/http3", handleHTTP3)
 		api.GET("/dns", handleDNS)
 		api.GET("/ip", handleIP)
+		api.GET("/my-ip", handleMyIP)
 		api.GET("/web-settings", handleWebSettings)
 		api.GET("/email-config", handleEmailConfig)
 		api.GET("/blocklist", handleBlocklist)
@@ -2241,6 +2279,7 @@ func main() {
 				"http3":         "GET /api/v1/http3?domain=example.com",
 				"dns":           "GET /api/v1/dns?domain=example.com",
 				"ip":            "GET /api/v1/ip?ip=8.8.8.8 or ?domain=example.com",
+				"my-ip":         "GET /api/v1/my-ip (returns your IP address)",
 				"web-settings":  "GET /api/v1/web-settings?domain=example.com",
 				"email-config":  "GET /api/v1/email-config?domain=example.com",
 				"blocklist":     "GET /api/v1/blocklist?domain=example.com",

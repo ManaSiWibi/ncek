@@ -24,6 +24,7 @@ export async function GET({ url, request }) {
 			'http3': 'http3',
 			'dns': 'dns',
 			'ip': 'ip',
+			'my-ip': 'my-ip',
 			'web-settings': 'web-settings',
 			'web_settings': 'web-settings', // Support both formats
 			'email-config': 'email-config',

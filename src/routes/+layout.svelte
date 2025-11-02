@@ -35,18 +35,24 @@
 		description:
 			"Lookup DNS records including A, AAAA, CNAME, MX, TXT, and NS records."
 		},
-		{
+	{
 		title: "IP Lookup",
 		href: "/ip",
 		description:
 			"Get information about an IP address or resolve a domain to IP addresses."
-		},
-		{
+	},
+	{
+		title: "My IP Address",
+		href: "/my-ip",
+		description:
+			"Check your current IP address and location information."
+	},
+	{
 		title: "Web Settings",
 		href: "/web-settings",
 		description:
 			"Check web server settings, headers, and response information."
-		},
+	},
 		{
 		title: "Email Config",
 		href: "/email-config",

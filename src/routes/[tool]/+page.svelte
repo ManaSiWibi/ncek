@@ -17,11 +17,36 @@
 	
 	// Reset state when tool changes
 	$effect(() => {
-		// Track the current tool to trigger effect on route change
+		// Track the current tool and config to trigger effect on route change
 		currentTool;
+		const currentConfig = config;
 		result = null;
 		loading = false;
+		
+		// Auto-run client-side tools (like my-ip) on mount/route change
+		if (currentConfig?.clientSide) {
+			runTool();
+		}
 	});
+	
+	async function runTool() {
+		if (!config) return;
+		
+		loading = true;
+		result = null;
+		
+		try {
+			// For client-side tools, pass empty string or no value
+			const params = config.apiParams ? config.apiParams('') : { type: 'my-ip' };
+			const res = await fetchApiData('/api', params);
+			result = config.transform ? config.transform(res) : res;
+		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : String(err);
+			result = { error: 'Request failed', details: errorMessage };
+		} finally {
+			loading = false;
+		}
+	}
 	
 	const pageTitle = $derived(config ? `${config.title} | NCEK` : 'Tool | NCEK');
 	const pageDescription = $derived(config?.description || 'Network and website checking tool');
@@ -72,40 +97,55 @@
 					</p>
 				</header>
 
-				<!-- Form -->
-				<div class="w-full max-w-2xl mx-auto">
-					<form onsubmit={checkTool} class="space-y-6" aria-label={`${config.title} form`}>
-						<div>
-							<label for="value" class="block text-sm font-medium text-gray-700 mb-2">
-								Input
-							</label>
-							<input
-								id="value"
-								name={config.formField}
-								type="text"
-								placeholder={config.placeholder}
-								autocomplete={config.formField === 'ip' ? 'off' : 'url'}
-								required
-								aria-required="true"
-								aria-label={config.placeholder}
-								class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+				<!-- Form (only show for tools that require input) -->
+				{#if !config.clientSide}
+					<div class="w-full max-w-2xl mx-auto">
+						<form onsubmit={checkTool} class="space-y-6" aria-label={`${config.title} form`}>
+							<div>
+								<label for="value" class="block text-sm font-medium text-gray-700 mb-2">
+									Input
+								</label>
+								<input
+									id="value"
+									name={config.formField}
+									type="text"
+									placeholder={config.placeholder}
+									autocomplete={config.formField === 'ip' ? 'off' : 'url'}
+									required
+									aria-required="true"
+									aria-label={config.placeholder}
+									class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200"
+									disabled={loading}
+									aria-describedby="input-help"
+								/>
+								<p id="input-help" class="sr-only">Enter {config.placeholder}</p>
+							</div>
+							
+							<button
+								type="submit"
 								disabled={loading}
-								aria-describedby="input-help"
-							/>
-							<p id="input-help" class="sr-only">Enter {config.placeholder}</p>
-						</div>
-						
-						<button
-							type="submit"
-							disabled={loading}
-							aria-label={loading ? 'Checking, please wait' : `Run ${config.title} check`}
-							aria-busy={loading}
-							class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-						>
-							{loading ? 'Checking...' : 'Submit'}
-						</button>
-					</form>
-				</div>
+								aria-label={loading ? 'Checking, please wait' : `Run ${config.title} check`}
+								aria-busy={loading}
+								class="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+							>
+								{loading ? 'Checking...' : 'Submit'}
+							</button>
+						</form>
+					</div>
+				{:else}
+					<!-- Auto-running tool - show loading state -->
+					<div class="w-full max-w-2xl mx-auto text-center">
+						{#if loading}
+							<div class="py-8">
+								<p class="text-gray-600">Checking your IP address...</p>
+							</div>
+						{:else if result && !result.error}
+							<div class="py-4">
+								<p class="text-sm text-gray-500">IP address checked successfully</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				<!-- Results -->
 				{#if result}

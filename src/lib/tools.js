@@ -61,6 +61,16 @@ export const tools = {
 		resultCard: 'ip',
 		transform: (data) => data
 	},
+	"my-ip": {
+		title: 'My IP Address',
+		description: 'Check your current IP address and location information.',
+		placeholder: 'Click to check your IP',
+		formField: 'dummy', // Not used, but required by the form
+		apiParams: () => ({ type: 'my-ip' }), // No parameters needed
+		resultCard: 'ip',
+		clientSide: true, // Auto-run on page load
+		transform: (data) => data
+	},
 	"web-settings": {
 		title: 'Web Settings',
 		description: 'Check web server settings, headers, and response information.',
