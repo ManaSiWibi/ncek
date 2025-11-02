@@ -1773,66 +1773,48 @@ func main() {
 
 	p := ginprometheus.NewPrometheus("gin")
 
-	// Add CORS middleware - validate and restrict to allowed origin
+	// API secret authentication middleware - require secret for all requests
 	r.Use(func(c *gin.Context) {
-		allowedOrigin := strings.TrimSpace(getenvDefault("ALLOWED_ORIGIN", "http://localhost:3001"))
-		requestOrigin := c.Request.Header.Get("Origin")
-		clientIP := c.ClientIP()
-
-		// Check for API secret key (required for server-to-server requests)
+		// Check for API secret key - required for all requests
 		apiSecret := strings.TrimSpace(getenvDefault("API_SECRET_KEY", ""))
+		if apiSecret == "" {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
+				Success: false,
+				Error:   "API secret key not configured",
+			})
+			return
+		}
+
+		// Get secret from header or query parameter
 		providedSecret := c.Request.Header.Get("X-API-Secret")
-		hasValidSecret := apiSecret != "" && providedSecret == apiSecret
-
-		// Determine if request is from internal network (Docker network or localhost)
-		// Used as fallback for local development
-		isInternalNetwork := clientIP == "127.0.0.1" || clientIP == "::1" ||
-			strings.HasPrefix(clientIP, "192.168.") ||
-			strings.HasPrefix(clientIP, "10.") ||
-			strings.HasPrefix(clientIP, "172.16.") ||
-			strings.HasPrefix(clientIP, "172.17.") ||
-			strings.HasPrefix(clientIP, "172.18.") ||
-			strings.HasPrefix(clientIP, "172.19.") ||
-			strings.HasPrefix(clientIP, "172.20.") ||
-			strings.HasPrefix(clientIP, "172.21.") ||
-			strings.HasPrefix(clientIP, "172.22.") ||
-			strings.HasPrefix(clientIP, "172.23.") ||
-			strings.HasPrefix(clientIP, "172.24.") ||
-			strings.HasPrefix(clientIP, "172.25.") ||
-			strings.HasPrefix(clientIP, "172.26.") ||
-			strings.HasPrefix(clientIP, "172.27.") ||
-			strings.HasPrefix(clientIP, "172.28.") ||
-			strings.HasPrefix(clientIP, "172.29.") ||
-			strings.HasPrefix(clientIP, "172.30.") ||
-			strings.HasPrefix(clientIP, "172.31.")
-
-		// For browser requests, validate the Origin header
-		if requestOrigin != "" {
-			if requestOrigin != allowedOrigin {
-				c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
-					Success: false,
-					Error:   "Origin not allowed",
-				})
-				return
-			}
-			c.Header("Access-Control-Allow-Origin", allowedOrigin)
-		} else {
-			// For non-browser requests (no Origin header like curl, Postman, server-to-server):
-			// Require X-API-Secret header (from frontend proxy with secret key) OR be from internal network
-			// This prevents external direct API access while allowing frontend proxy and local development
-			if !hasValidSecret && !isInternalNetwork {
-				c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
-					Success: false,
-					Error:   "Direct API access not allowed. Please use the frontend application.",
-				})
-				return
+		if providedSecret == "" {
+			providedSecret = c.Query("secret")
+		}
+		if providedSecret == "" {
+			// Try Authorization header with Bearer token
+			authHeader := c.Request.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				providedSecret = strings.TrimPrefix(authHeader, "Bearer ")
 			}
 		}
 
-		c.Header("Vary", "Origin")
-		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, X-Internal-Proxy, X-API-Secret")
-		c.Header("Access-Control-Allow-Credentials", "true")
+		// Require secret to match - no exceptions
+		if providedSecret != apiSecret {
+			c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
+				Success: false,
+				Error:   "Invalid or missing API secret key",
+			})
+			return
+		}
+
+		// Set CORS headers if Origin is present (for browser requests from frontend)
+		requestOrigin := c.Request.Header.Get("Origin")
+		if requestOrigin != "" {
+			c.Header("Access-Control-Allow-Origin", requestOrigin)
+			c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, X-Internal-Proxy, X-API-Secret, Authorization")
+			c.Header("Access-Control-Allow-Credentials", "true")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
