@@ -1791,7 +1791,8 @@ func main() {
 			return
 		}
 
-		// In production mode, require secret authentication
+		// In production mode, require secret authentication AND internal proxy header
+		// This prevents direct API access - all requests must go through the SvelteKit proxy
 		apiSecret := strings.TrimSpace(getenvDefault("API_SECRET_KEY", ""))
 		if apiSecret == "" {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, APIResponse{
@@ -1801,13 +1802,21 @@ func main() {
 			return
 		}
 
-		// Get secret from header or query parameter
+		// Require X-Internal-Proxy header to prevent direct API access
+		// Only the SvelteKit server-side proxy sets this header
+		internalProxy := c.Request.Header.Get("X-Internal-Proxy")
+		if internalProxy != "true" {
+			c.AbortWithStatusJSON(http.StatusForbidden, APIResponse{
+				Success: false,
+				Error:   "Direct API access not allowed. Requests must go through the application proxy.",
+			})
+			return
+		}
+
+		// Get secret from header (query parameter removed for security)
 		providedSecret := c.Request.Header.Get("X-API-Secret")
 		if providedSecret == "" {
-			providedSecret = c.Query("secret")
-		}
-		if providedSecret == "" {
-			// Try Authorization header with Bearer token
+			// Try Authorization header with Bearer token as fallback
 			authHeader := c.Request.Header.Get("Authorization")
 			if strings.HasPrefix(authHeader, "Bearer ") {
 				providedSecret = strings.TrimPrefix(authHeader, "Bearer ")
