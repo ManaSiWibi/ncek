@@ -6,7 +6,8 @@ const config = {
 		// Using adapter-node for Docker deployment
 		adapter: adapter(),
 		csrf: {
-			checkOrigin: false
+			trustedOrigins: ['https://tools.kenadera.org', 'http://localhost:3001'],
+			// checkOrigin: false
 		}
 	}
 };
